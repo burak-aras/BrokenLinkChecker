@@ -1,88 +1,58 @@
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ---------------------------------------------
 
-print("Broken Link Checker")
+class brokenLink():
+    def __init__(self, xmlLink, searchWord):
+        self.xmlLink = xmlLink
+        self.searchWord = searchWord
 
-def get_urls_of_xml(xml_url):
-    response = requests.get(xml_url, verify=False)
-    xml = response.text
-    soup = BeautifulSoup(xml, "lxml")
-    links_arr = []
-    for link in soup.findAll('loc'):
-        linkstr = link.getText('', True)
-        links_arr.append(linkstr)
-    print("{} main link \n ***PLEASE WAİT***" .format(len(links_arr)))
-    return links_arr
+    def xmlLinks(self):
+        response = requests.get(self.xmlLink,verify=False)
+        soup = BeautifulSoup(response.text, "lxml")
+        links = [i.getText("") for i in soup.find_all("loc")]
+        links2 = []
+        for i in links:
+            if ".xml" in i:
+                response2 = requests.get(i,verify=False)
+                soup2 = BeautifulSoup(response2.text, "lxml")
+                for i in soup2.find_all("loc"):
+                    links2.append(i.getText(""))
+        if links2:
+            print(len(links2))
+            return links2
+        else:
+            print(len(links))
+            return links
 
-
-def linksData(linkData):
-    links_data_arr = get_urls_of_xml(linkData)
-    return links_data_arr
-
-# ---------------------------------------------
-
-
-def siteMapLinks(xmlLink):
-    allLinks = []
-    for i in xmlLink:
-        try:
-            resp = requests.get(i, verify=False)
-            html = resp.content
-            soup = BeautifulSoup(html, "html.parser")
+    def subLinks(self, xmlLinks1):
+        subLinks = []
+        for i in xmlLinks1:
+            response = requests.get(i,verify=False)
+            soup = BeautifulSoup(response.text, "lxml")
             for i in soup.find_all("a"):
-                allLinks.append(i.get("href"))
-        except:
-            pass
-    allLinks = list(dict.fromkeys(allLinks))
-    print("{} all link".format(len(allLinks)))
-    return allLinks
+                subLinks.append(i.get("href"))
+        subLinks = list(filter(None, subLinks))
+        subLinks = list(dict.fromkeys(subLinks))
+        subLinks = [i for i in subLinks if self.searchWord in i]
+        print(len(subLinks))
+        return subLinks
 
-
-links_data_arr = linksData(input("Web Site sitemap.xml adress : "))
-allLinks = siteMapLinks(links_data_arr)
-
-# ---------------------------------------------
-
-
-def filters(filteritem):
-    filteredlist = []
-    for string in allLinks:
-        if string == None:
-            string = "31"
-        string = string.split()
-        res = [x for x in string if filteritem in x]
-        filteredlist.append(res)
-        filteredListLast = list(filter(None, filteredlist))
-    return filteredListLast
-
-
-# ---------------------------------------------
-
-def detect(filterList):
-    dosya = open("output.txt", "w")
-    for i in filterList:
-        for a in i:
+    def control(self, subLinks):
+        f = open("output.txt", "w")
+        for i in subLinks:
             try:
-                response = requests.get(a, verify=False)
-                if (response.status_code == 404) or (response.status_code == 406):
-                    print(response, " ", a,)
-                    dosya.write(a)
-                    dosya.write("\n")
-                else:
-                    print(response)
+                response = requests.get(i, verify=False,timeout=3)
+                if response.status_code == 404 or response.status_code == 406:
+                    print(response, " ", i)
+                    f.write(f"{response} {i} \n ")
             except:
-                print("error skip : {}".format(a))
-    dosya.close()
+                print("? ", i)
+        f.close()
 
 
-for i in range(100):
-    girdi = input("serach word (for all pages=http) (exit=Q) :")
-    if girdi == "Q":
-        break
-    filteredListLast = filters(girdi)
-    detect(filteredListLast)
-    
+brokenLinkDetect = brokenLink(xmlLink=input("Sitemap .xml link : "), searchWord=input("Search word (http=all) : "))
+p2 = brokenLinkDetect.subLinks(xmlLinks1=brokenLinkDetect.xmlLinks())
+brokenLinkDetect.control(p2)
